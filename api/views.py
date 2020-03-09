@@ -101,7 +101,7 @@ class RolesView(APIView):
         # ret = json.dumps(ser.data, ensure_ascii=False)
 
         # 方式三：转换单个对象
-        role = models.Role.objects.all().all().first()
+        role = models.Role.objects.all().first()
         # many=False表示有一条数据
         ser = RolesSerializer(instance=role, many=False)
         # ser.data已经是转换完成后的结果
@@ -113,7 +113,7 @@ class RolesView(APIView):
 
 
 class UserInfoSerializer(serializers.Serializer):
-    user_type1 = serializers.CharField(source='user_type')
+    user_type1 = serializers.IntegerField(source='user_type')
     user_type_choices1 = serializers.CharField(source='get_user_type_display')
     username = serializers.CharField()
     password = serializers.CharField()
@@ -141,15 +141,16 @@ class UserInfoView(APIView):
 
 
 class UserInfofoSerializer(serializers.ModelSerializer):
-    user_type1 = serializers.CharField(source='user_type')
+    user_type1 = serializers.IntegerField(source='user_type')
     user_type_choices1 = serializers.CharField(source='get_user_type_display')
+    gp = serializers.CharField(source='group.title')
     rls = serializers.SerializerMethodField()  # 自定义显示,显示的内容为一个函数返回值（gte开头，该字段结尾的函数）
 
     class Meta:
         model = models.UserInfo
         # 直接按数据库中的字段显示
         # fields = "__all__"
-        fields = ['id', 'username', 'password', 'user_type1', 'user_type_choices1', 'rls']
+        fields = ['id', 'username', 'password', 'user_type1', 'user_type_choices1', 'rls', 'gp']
 
     def get_rls(self, row):
         role_obi_list = row.roles.all()
@@ -165,5 +166,91 @@ class UserInfofoView(APIView):
         ser = UserInfofoSerializer(users, many=True)
         ret = json.dumps(ser.data, ensure_ascii=False)
         return HttpResponse(ret)
+
+
+##################################### 自动序列化连表，使用depth字段也可实现多层展示 ####################################
+
+
+class UserInSerializer(serializers.ModelSerializer):
+    group = serializers.HyperlinkedIdentityField(view_name='gp', lookup_url_kwarg='pk', lookup_field='group_id')
+
+    class Meta:
+        model = models.UserInfo
+        # 直接按数据库中的字段显示
+        # fields = "__all__"
+        fields = ['id', 'username', 'password', 'group', 'roles']
+        depth = 1  # 深度展示层数（官方建议0-10层），当表格中某些字段使用ForeignKey或ManyToManyField时，depth的值，代表想深度展示的层数
+
+
+class UserInView(APIView):
+    def get(self, request, *args, **kwargs):
+        users = models.UserInfo.objects.all()
+        # 对象，Serializers类处理，self.to_representation
+        # QuerySet，ListSerializer类处理，self.to_representation
+        ser = UserInSerializer(users, many=True, context={'request': request})
+        ret = json.dumps(ser.data, ensure_ascii=False)
+        return HttpResponse(ret)
+
+
+class GroupViewSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.UserGroup
+        # 直接按数据库中的字段显示
+        fields = "__all__"
+
+
+class GroupView(APIView):
+    def get(self, request, *args, **kwargs):
+        pk = kwargs.get('pk')
+        obj = models.UserGroup.objects.filter(pk=pk).first()
+        ser = GroupViewSerializer(obj, many=False)
+        ret = json.dumps(ser.data, ensure_ascii=False)
+        return HttpResponse(ret)
+
+
+################################ 数据校验、验证 #####################################################
+
+class TitleValidator(object):
+    def __init__(self, base):
+        self.base = base
+
+    def __call__(self, value):
+        if not value.startswith(self.base):
+            message = '标题必须是以%s开头' % self.base
+            raise serializers.ValidationError(message)
+
+    def set_context(self, serializer_field):
+        """
+        This hook is called by the serializer instance,
+        prior to the validation call being made.
+        """
+        # 执行验证之前调用,serializer_fields是当前字段对象
+        pass
+
+
+class UserGroupSerializer(serializers.Serializer):
+    # validators自定义验证规则
+    title = serializers.CharField(error_messages={"required": "不能为空"}, validators=[TitleValidator('老男人'), ])
+
+
+class UserGroupView(APIView):
+
+    def post(self, request, *args, **kwargs):
+        '''
+        对提交的数据进行数据校验
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        '''
+        # 获取提交的数据
+        print(request.data)
+        ser = UserGroupSerializer(data=request.data)
+        if ser.is_valid():
+            print(ser.validated_data['title'])
+        else:
+            print(ser.errors)
+        return HttpResponse('提交数据')
 
 
