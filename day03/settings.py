@@ -131,5 +131,8 @@ REST_FRAMEWORK = {
     # 支持的版本号
     'ALLOWED_VERSIONS': ['v1', 'v2'],
     # 版本参数的key
-    'VERSION_PARAM': 'version'
+    'VERSION_PARAM': 'version',
+
+    # 配置全局的解析器
+    'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser', 'rest_framework.parsers.FormParser']
 }
