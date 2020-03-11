@@ -187,7 +187,16 @@ class UserInView(APIView):
         users = models.UserInfo.objects.all()
         # 对象，Serializers类处理，self.to_representation
         # QuerySet，ListSerializer类处理，self.to_representation
+        # 1、实例化，将数据封装到对象，先执行__new__，再执行__init__
+        '''
+        如果many=True，执行ListSerializer对象的构造方法；
+        如果many=False，执行UserInSerializer对象的构造方法；
+        '''
         ser = UserInSerializer(users, many=True, context={'request': request})
+        # 2、调用对象的data属性
+        # 执行ListSerializer中to_representation方法
+        # 执行UserInSerializer，先执行Serializer中to_representation方法，循环执行UserInSerializer中所有需要序列化的字段，获取指定字段对应的值或对象
+        # 如果是CharField或IntegerField获取的是值，如果HyperlinkedIdentityField获取的是对象，再分别执行各个子段对应的to_representation方法，
         ret = json.dumps(ser.data, ensure_ascii=False)
         return HttpResponse(ret)
 
@@ -233,6 +242,14 @@ class UserGroupSerializer(serializers.Serializer):
     # validators自定义验证规则
     title = serializers.CharField(error_messages={"required": "不能为空"}, validators=[TitleValidator('老男人'), ])
 
+    # 验证的钩子函数
+    # 可以返回值，也可抛出异常
+    def validate_title(self, value):
+        print(value)
+        # from rest_framework import exceptions
+        # raise exceptions.ValidationError('就是不通过')
+        return value
+
 
 class UserGroupView(APIView):
 
@@ -252,5 +269,6 @@ class UserGroupView(APIView):
         else:
             print(ser.errors)
         return HttpResponse('提交数据')
+
 
 
