@@ -134,5 +134,14 @@ REST_FRAMEWORK = {
     'VERSION_PARAM': 'version',
 
     # 配置全局的解析器
-    'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser', 'rest_framework.parsers.FormParser']
+    'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser', 'rest_framework.parsers.FormParser'],
+
+    # 分页配置
+    'PAGE_SIZE': 5,  # 一页显示几条数据
+
+    # 全局渲染器配置
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ]
 }

@@ -271,4 +271,200 @@ class UserGroupView(APIView):
         return HttpResponse('提交数据')
 
 
+############################################## 分页 ########################################################
 
+from api.utils.serializers.pager import PagerSerializers
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination, CursorPagination
+
+'''
+根据页码进行分页(看第n页，每页显示n条数据)
+'''
+
+
+class MyPageNumberPagination(PageNumberPagination):
+
+    # 每页显示数据
+    page_size = 10
+    # 获取URL参数中传入的页码key
+    page_query_param = 'page'
+    # 获取URL参数中设置的每页显示数据条数，默认为None,表示每页显示数据以page_size值为准
+    page_size_query_param = 'size'
+    # 最大支持的每页显示的数据条数
+    max_page_size = 5
+
+
+class Pager1View(APIView):
+
+    def get(self, request, *args, **kwargs):
+        # 获取所有数据
+        roles = models.Role.objects.all()
+
+        # 创建分页对象
+        pg = MyPageNumberPagination()
+
+        # 在数据库中获取分页的数据
+        pagers_roles = pg.paginate_queryset(queryset=roles, request=request, view=self)
+
+        # 对数据进行序列化
+        ser = PagerSerializers(instance=pagers_roles, many=True)
+
+        # response = pg.get_paginated_response(ser.data)
+        # return response
+        return Response(ser.data)
+
+
+'''
+根据位置和个数进行分页(在某个位置，向后查看n条数据)
+'''
+
+
+class MyLimitOffsetPagination(LimitOffsetPagination):
+
+    # 默认每页显示的数据条数
+    default_limit = 10
+    # URL中传入的显示数据条数的参数
+    limit_query_param = 'limit'
+    # URL中传入的数据位置的参数
+    offset_query_param = 'offset'
+    # 最大每页显得条数
+    max_limit = 6
+
+
+class Pager11View(APIView):
+
+    def get(self, request, *args, **kwargs):
+        # 获取所有数据
+        roles = models.Role.objects.all()
+
+        # 创建分页对象
+        pg = MyLimitOffsetPagination()
+
+        # 在数据库中获取分页的数据
+        pagers_roles = pg.paginate_queryset(queryset=roles, request=request, view=self)
+
+        # 对数据进行序列化
+        ser = PagerSerializers(instance=pagers_roles, many=True)
+
+        # response = pg.get_paginated_response(ser.data)
+        # return response
+        return Response(ser.data)
+
+
+'''
+游标分页(只让看上一页和下一页)
+'''
+
+
+class MyCursorPagination(CursorPagination):
+    # URL传入的游标参数
+    cursor_query_param = 'cursor'
+    # 默认每页显示的数据条数
+    page_size = 10
+    # 根据ID从大到小排列
+    ordering = '-id'
+    # URL传入的每页显示条数的参数
+    page_size_query_param = 'size'
+    # 每页显示数据最大条数
+    max_page_size = 1000
+
+
+class Pager111View(APIView):
+
+    def get(self, request, *args, **kwargs):
+        # 获取所有数据
+        roles = models.Role.objects.all()
+
+        # 创建分页对象
+        pg = MyCursorPagination()
+
+        # 在数据库中获取分页的数据
+        pagers_roles = pg.paginate_queryset(queryset=roles, request=request, view=self)
+
+        # 对数据进行序列化
+        ser = PagerSerializers(instance=pagers_roles, many=True)
+
+        response = pg.get_paginated_response(ser.data)
+        return response
+
+
+########################################################### 视图、路由 ######################################################
+
+from rest_framework.generics import GenericAPIView
+
+
+class View1View(GenericAPIView):
+    queryset = models.Role.objects.all()
+    serializer_class = PagerSerializers
+    pagination_class = PageNumberPagination
+
+    def get(self, request, *args, **kwargs):
+        # 获取数据
+        roles = self.get_queryset()  # models.Role.objects.all()
+        # 分页
+        pagers_roles = self.paginate_queryset(roles)
+        # 序列化
+        ser = self.get_serializer(instance=pagers_roles, many=True)
+        return Response(ser.data)
+
+
+from rest_framework.viewsets import GenericViewSet
+
+
+class View2View(GenericViewSet):
+    queryset = models.Role.objects.all()
+    serializer_class = PagerSerializers
+    pagination_class = PageNumberPagination
+
+    def list(self, request, *args, **kwargs):
+        # 获取数据
+        roles = self.get_queryset()  # models.Role.objects.all()
+        # 分页
+        pagers_roles = self.paginate_queryset(roles)
+        # 序列化
+        ser = self.get_serializer(instance=pagers_roles, many=True)
+        return Response(ser.data)
+
+
+from rest_framework.viewsets import ModelViewSet
+
+
+class View3View(ModelViewSet):
+    queryset = models.Role.objects.all()
+    serializer_class = PagerSerializers
+    pagination_class = PageNumberPagination
+
+
+class View4View(ModelViewSet):
+    queryset = models.Role.objects.all()
+    serializer_class = PagerSerializers
+    pagination_class = PageNumberPagination
+
+
+class Group1View(ModelViewSet):
+    queryset = models.UserGroup.objects.all()
+    serializer_class = GroupViewSerializer
+    pagination_class = PageNumberPagination
+
+
+############################################################ 渲染器 #################################################
+from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer, AdminRenderer, HTMLFormRenderer
+
+
+class TestView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer, AdminRenderer]
+
+    def get(self, request, *args, **kwargs):
+        # 获取所有数据
+        roles = models.Role.objects.all().first()
+
+        # 创建分页对象f
+        pg = MyCursorPagination()
+
+        # 在数据库中获取分页的数据
+        pagers_roles = pg.paginate_queryset(queryset=roles, request=request, view=self)
+
+        # 对数据进行序列化
+        ser = PagerSerializers(instance=pagers_roles, many=True)
+
+        return Response(ser.data)
